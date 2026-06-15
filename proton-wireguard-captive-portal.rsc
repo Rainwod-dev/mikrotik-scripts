@@ -15,7 +15,7 @@ set [find default-name=wlan2] mode=ap-bridge ssid="TIK-CASA" \
     security-profile=tik-casa-security disabled=no
 
 /interface wireguard
-add name=proton-wg mtu=1420 private-key="REEMPLAZAR_CLAVE_PRIVADA" comment="Proton WireGuard"
+add name=proton-wg mtu=1420 private-key="4oKEJRIJRCgFDyIl2FhYQlDTgd2mEmH9tFizWsss/uaXj3nAmL1/HMa4jEbR8nkp6t3GcSm4ei7ELUoGWKLVgA==" comment="Proton WireGuard"
 
 /ip address
 add address=10.2.0.2/32 interface=proton-wg comment="Proton IPv4"
@@ -35,6 +35,7 @@ add dst-address=0.0.0.0/0 gateway=proton-wg routing-table=to-proton comment="Def
 # La excepcion del portal debe aparecer antes de la regla LAN. La segunda regla es kill switch.
 /routing rule
 add dst-address=10.180.0.30/32 action=lookup-only-in-table table=main comment="Portal ETECSA por ADSL"
+
 add interface=bridge1 action=lookup-only-in-table table=to-proton comment="LAN solo por Proton"
 
 /ip firewall nat

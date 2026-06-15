@@ -33,6 +33,7 @@ la red `TIK-CASA`; use al menos ocho caracteres.
 4. Confirme que `secure.etecsa.net` continúe resolviendo a `10.180.0.30` con `:put [:resolve secure.etecsa.net]`.
 5. Edite `proton-wireguard-captive-portal.rsc`: sustituya `REEMPLAZAR_CLAVE_PRIVADA` por el valor `PrivateKey` entregado por Proton y `REEMPLAZAR_CLAVE_WIFI` por una contraseña WPA2 de al menos ocho caracteres.
 
+
 El archivo ya usa la puerta de enlace ADSL `192.168.1.1` y la IP del portal
 `10.180.0.30`. La excepción del portal debe ser por **dirección IP**, porque las
 decisiones de ruta no usan el nombre/SNI HTTPS. Si ETECSA cambia la IP,
