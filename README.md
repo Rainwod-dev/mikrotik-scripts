@@ -7,9 +7,9 @@ el `bridge1` mostrado en la configuración suministrada como LAN (`wlan1`,
 El script configura `wlan1` y `wlan2` como puntos de acceso con el SSID
 **`TIK-CASA`**, usando el paquete legacy `wireless` que corresponde a los nombres
 de interfaz mostrados. Ambas radios usan la misma contraseña WPA2 y permanecen
-
 dentro de `bridge1`. También configura la LAN `192.168.88.0/24`, el gateway
 `192.168.88.1` y DHCP para entregar direcciones `192.168.88.10-192.168.88.254`.
+
 `REEMPLAZAR_CLAVE_PRIVADA` **no es la contraseña del punto de acceso**. Es el
 valor `PrivateKey` de la sección `[Interface]` del archivo WireGuard entregado
 por Proton. `REEMPLAZAR_CLAVE_WIFI` es la contraseña WPA2 que debe elegir para
@@ -96,6 +96,7 @@ de confirmar que `192.168.1.2` está libre ejecute:
 /ping 192.168.1.1 count=4
 /ping 10.180.0.30 count=4
 ```
+
 ## Instalación y autenticación
 
 Importe el archivo editado:
@@ -106,10 +107,10 @@ Importe el archivo editado:
 
 Al arrancar sin sesión del ISP, abra `https://secure.etecsa.net:8443/` desde cualquier equipo de la LAN. Esa IP está exceptuada hacia ADSL; el resto queda bloqueado por el *kill switch* hasta que WireGuard pueda conectarse. Complete manualmente el inicio de sesión. El túnel debería negociar después de que el ISP habilite Internet.
 
-
 El script añade una entrada DNS estática para `secure.etecsa.net`, porque el DNS
 de Proton `10.2.0.1` no es alcanzable antes de levantar el túnel.
 
+## Verificación
 
 ```routeros
 /interface/wireguard/peers/print detail
