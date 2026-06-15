@@ -1,16 +1,18 @@
 # MikroTik hAP ac³: LAN por Proton WireGuard con portal cautivo
 
-Configuración complementaria para **RouterOS 7.20.8**. Está pensada para conservar la configuración predeterminada del hAP ac³: `ether1` como WAN y `bridge` como LAN (Wi‑Fi y `ether2`–`ether5`). No borra ni reemplaza la configuración existente.
+Configuración complementaria para **RouterOS 7.20.8**. Usa `ether1` como WAN y
+el `bridge1` mostrado en la configuración suministrada como LAN (`wlan1`,
+`wlan2` y `ether2`–`ether5`).
 
-**Este script no crea el punto de acceso Wi‑Fi.** Usa el Wi‑Fi que ya tenga
-configurado el router y lo enruta por la VPN siempre que sus interfaces formen
-parte de `bridge`. Se evita modificarlo automáticamente porque el hAP ac³ puede
-usar el paquete `wireless` o `wifi-qcom-ac`, cuyos comandos son diferentes.
+El script configura `wlan1` y `wlan2` como puntos de acceso con el SSID
+**`TIK-CASA`**, usando el paquete legacy `wireless` que corresponde a los nombres
+de interfaz mostrados. Ambas radios usan la misma contraseña WPA2 y permanecen
+dentro de `bridge1`.
 
 `REEMPLAZAR_CLAVE_PRIVADA` **no es la contraseña del punto de acceso**. Es el
 valor `PrivateKey` de la sección `[Interface]` del archivo WireGuard entregado
-por Proton. La contraseña Wi‑Fi es un valor independiente que debe elegir el
-administrador.
+por Proton. `REEMPLAZAR_CLAVE_WIFI` es la contraseña WPA2 que debe elegir para
+la red `TIK-CASA`; use al menos ocho caracteres.
 
 ## Diseño
 
@@ -26,10 +28,11 @@ administrador.
    /system backup save name=antes-proton
    /export file=antes-proton
    ```
-2. Confirme que Wi‑Fi y `ether2`–`ether5` pertenecen a `bridge` y que `ether1` es la WAN.
+2. Confirme que Wi‑Fi y `ether2`–`ether5` continúan perteneciendo a `bridge1` y que `ether1` es la WAN.
 3. Confirme que la puerta de enlace ADSL sea `192.168.1.1` con `/ip route print where dst-address=0.0.0.0/0`.
 4. Confirme que `secure.etecsa.net` continúe resolviendo a `10.180.0.30` con `:put [:resolve secure.etecsa.net]`.
-5. Edite `proton-wireguard-captive-portal.rsc` y sustituya únicamente `REEMPLAZAR_CLAVE_PRIVADA` por el valor `PrivateKey` entregado por Proton.
+5. Edite `proton-wireguard-captive-portal.rsc`: sustituya `REEMPLAZAR_CLAVE_PRIVADA` por el valor `PrivateKey` entregado por Proton y `REEMPLAZAR_CLAVE_WIFI` por una contraseña WPA2 de al menos ocho caracteres.
+
 
 El archivo ya usa la puerta de enlace ADSL `192.168.1.1` y la IP del portal
 `10.180.0.30`. La excepción del portal debe ser por **dirección IP**, porque las
@@ -66,6 +69,7 @@ Debe aumentar `last-handshake`/`rx`/`tx` del peer. Desde un cliente LAN, comprue
 ## Documentación oficial consultada
 
 - [WireGuard](https://help.mikrotik.com/docs/spaces/ROS/pages/69664792/WireGuard)
+- [Wireless Interface](https://help.mikrotik.com/docs/spaces/ROS/pages/8978446/Wireless%2BInterface)
 - [Policy Routing](https://help.mikrotik.com/docs/spaces/ROS/pages/59965508/Policy%2BRouting)
 - [First Time Configuration](https://help.mikrotik.com/docs/spaces/ROS/pages/328151/First%2BTime%2BConfiguration)
 - [DNS](https://help.mikrotik.com/docs/spaces/ROS/pages/37748767/DNS)

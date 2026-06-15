@@ -1,6 +1,18 @@
 # RouterOS 7.20.8 - complemento sobre la configuracion predeterminada
-# EDITE REEMPLAZAR_CLAVE_PRIVADA ANTES DE IMPORTAR.
+# EDITE REEMPLAZAR_CLAVE_PRIVADA y REEMPLAZAR_CLAVE_WIFI antes de importar.
 # No es la clave Wi-Fi: es PrivateKey del archivo WireGuard entregado por Proton.
+
+# Punto de acceso para el paquete legacy "wireless" mostrado por wlan1/wlan2.
+# Ambas radios ya pertenecen a bridge1; no se vuelven a agregar al bridge.
+/interface wireless security-profiles
+add name=tik-casa-security mode=dynamic-keys authentication-types=wpa2-psk \
+    wpa2-pre-shared-key="REEMPLAZAR_CLAVE_WIFI" supplicant-identity=MikroTik
+
+/interface wireless
+set [find default-name=wlan1] mode=ap-bridge ssid="TIK-CASA" \
+    security-profile=tik-casa-security disabled=no
+set [find default-name=wlan2] mode=ap-bridge ssid="TIK-CASA" \
+    security-profile=tik-casa-security disabled=no
 
 /interface wireguard
 add name=proton-wg mtu=1420 private-key="4oKEJRIJRCgFDyIl2FhYQlDTgd2mEmH9tFizWsss/uaXj3nAmL1/HMa4jEbR8nkp6t3GcSm4ei7ELUoGWKLVgA==" comment="Proton WireGuard"
@@ -23,7 +35,8 @@ add dst-address=0.0.0.0/0 gateway=proton-wg routing-table=to-proton comment="Def
 # La excepcion del portal debe aparecer antes de la regla LAN. La segunda regla es kill switch.
 /routing rule
 add dst-address=10.180.0.30/32 action=lookup-only-in-table table=main comment="Portal ETECSA por ADSL"
-add interface=bridge action=lookup-only-in-table table=to-proton comment="LAN solo por Proton"
+
+add interface=bridge1 action=lookup-only-in-table table=to-proton comment="LAN solo por Proton"
 
 /ip firewall nat
 add chain=srcnat out-interface=proton-wg action=masquerade comment="Proton: NAT LAN"
