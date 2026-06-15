@@ -33,6 +33,7 @@ add name=tik-casa-dhcp interface=bridge1 address-pool=tik-casa-pool lease-time=1
 add address=192.168.88.0/24 gateway=192.168.88.1 dns-server=192.168.88.1 comment="LAN TIK-CASA"
 
 /interface wireguard peers
+
 add interface=proton-wg public-key="REEMPLAZAR_PUBLIC_KEY_PROTON" endpoint-address=REEMPLAZAR_ENDPOINT_PROTON endpoint-port=51820 allowed-address=0.0.0.0/0 persistent-keepalive=25s comment="Proton WireGuard peer"
 
 /routing table
@@ -40,6 +41,7 @@ add fib name=to-proton
 
 # Evitan que el endpoint VPN y el portal cautivo intenten cruzar el propio tunel.
 /ip route
+
 add dst-address=REEMPLAZAR_ENDPOINT_PROTON/32 gateway=192.168.1.1 routing-table=main comment="ADSL directo: endpoint Proton"
 add dst-address=10.180.0.30/32 gateway=192.168.1.1 routing-table=main comment="ADSL directo: portal ETECSA"
 add dst-address=10.2.0.1/32 gateway=proton-wg routing-table=main comment="DNS Proton para el router"
