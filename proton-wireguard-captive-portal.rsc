@@ -3,7 +3,7 @@
 # No es la clave Wi-Fi: es PrivateKey del archivo WireGuard entregado por Proton.
 
 /interface wireguard
-add name=proton-wg mtu=1420 private-key="REEMPLAZAR_CLAVE_PRIVADA" comment="Proton WireGuard"
+add name=proton-wg mtu=1420 private-key="4oKEJRIJRCgFDyIl2FhYQlDTgd2mEmH9tFizWsss/uaXj3nAmL1/HMa4jEbR8nkp6t3GcSm4ei7ELUoGWKLVgA==" comment="Proton WireGuard"
 
 /ip address
 add address=10.2.0.2/32 interface=proton-wg comment="Proton IPv4"
