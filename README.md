@@ -14,6 +14,45 @@ valor `PrivateKey` de la sección `[Interface]` del archivo WireGuard entregado
 por Proton. `REEMPLAZAR_CLAVE_WIFI` es la contraseña WPA2 que debe elegir para
 la red `TIK-CASA`; use al menos ocho caracteres.
 
+El texto Base64 largo que Proton muestra como encabezado de la configuración
+**no debe copiarse como `PrivateKey`**. Si el archivo descargado contiene
+literalmente `PrivateKey = *****`, esa configuración no sirve para configurar
+RouterOS: los asteriscos no son una clave válida y no existe forma de recuperar
+la clave privada a partir del encabezado o de la clave pública del peer.
+
+Elimine esa configuración en Proton y genere una nueva siguiendo el
+procedimiento oficial: **Downloads → WireGuard configuration → Create → Download**.
+Abra el `.conf` recién descargado con un editor de texto. Solo continúe si la
+línea `PrivateKey =` contiene una cadena Base64 real y no asteriscos. No publique,
+envíe ni coloque esa clave privada en el repositorio; introdúzcala únicamente en
+la copia del `.rsc` que vaya a importar al router. Si una configuración recién
+creada también se descarga con asteriscos, deténgase y contacte al soporte de
+Proton porque el túnel no podrá autenticarse.
+
+## ¿Está listo para importar?
+
+No está listo mientras conserve cualquier marcador `REEMPLAZAR_*`. Antes de
+ejecutarlo, también deben cumplirse todas estas condiciones:
+
+- El router debe tener una dirección de `192.168.1.0/24` en `ether1` y debe
+  alcanzar `192.168.1.1`. Compruébelo con `/ping 192.168.1.1`.
+- Deben existir `bridge1`, `wlan1` y `wlan2`; las radios y `ether2`–`ether5`
+  deben pertenecer a `bridge1`.
+- No deben existir objetos llamados `tik-casa-security`, `proton-wg` o
+  `to-proton`, porque el archivo está diseñado para una primera importación.
+- Debe realizarse un respaldo y conviene importar desde una conexión por cable
+  o mediante MAC-WinBox.
+
+Este repositorio no contiene una rama local llamada `main`; la configuración
+revisada está en la rama de trabajo actual.
+
+La clave privada compartida en una conversación, incidencia, captura o
+repositorio debe considerarse comprometida: elimine inmediatamente esa
+configuración en Proton y genere otra. Después copie desde la nueva configuración
+`PrivateKey`, `PublicKey` y la IP de `Endpoint` en los marcadores correspondientes
+de su copia local. El endpoint debe sustituirse en sus **dos** apariciones: peer
+y ruta directa. Nunca confirme una clave privada real en este repositorio.
+
 ## Diseño
 
 - El router alcanza el endpoint WireGuard y el portal cautivo por la tabla `main` (ADSL).
@@ -31,7 +70,7 @@ la red `TIK-CASA`; use al menos ocho caracteres.
 2. Confirme que Wi‑Fi y `ether2`–`ether5` continúan perteneciendo a `bridge1` y que `ether1` es la WAN.
 3. Confirme que la puerta de enlace ADSL sea `192.168.1.1` con `/ip route print where dst-address=0.0.0.0/0`.
 4. Confirme que `secure.etecsa.net` continúe resolviendo a `10.180.0.30` con `:put [:resolve secure.etecsa.net]`.
-5. Edite `proton-wireguard-captive-portal.rsc`: sustituya `REEMPLAZAR_CLAVE_PRIVADA` por el valor `PrivateKey` entregado por Proton y `REEMPLAZAR_CLAVE_WIFI` por una contraseña WPA2 de al menos ocho caracteres.
+5. Edite `proton-wireguard-captive-portal.rsc`: sustituya `REEMPLAZAR_CLAVE_PRIVADA`, `REEMPLAZAR_PUBLIC_KEY_PROTON`, las dos apariciones de `REEMPLAZAR_ENDPOINT_PROTON` y `REEMPLAZAR_CLAVE_WIFI` usando una configuración Proton nueva y no compartida.
 
 
 El archivo ya usa la puerta de enlace ADSL `192.168.1.1` y la IP del portal
@@ -69,6 +108,7 @@ Debe aumentar `last-handshake`/`rx`/`tx` del peer. Desde un cliente LAN, comprue
 ## Documentación oficial consultada
 
 - [WireGuard](https://help.mikrotik.com/docs/spaces/ROS/pages/69664792/WireGuard)
+- [Proton VPN: descargar configuraciones WireGuard](https://protonvpn.com/support/wireguard-configurations)
 - [Wireless Interface](https://help.mikrotik.com/docs/spaces/ROS/pages/8978446/Wireless%2BInterface)
 - [Policy Routing](https://help.mikrotik.com/docs/spaces/ROS/pages/59965508/Policy%2BRouting)
 - [First Time Configuration](https://help.mikrotik.com/docs/spaces/ROS/pages/328151/First%2BTime%2BConfiguration)
