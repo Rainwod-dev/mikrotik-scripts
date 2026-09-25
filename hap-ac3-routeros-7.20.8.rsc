@@ -3,6 +3,10 @@
 # IMPORTANT: review hap-ac3-routeros-7.20.8-deployment.md before importing.
 # Physical map: ether1=Starlink, ether2=ADSL, ether3=OmniTik.
 # This file deliberately aborts until every value in USER INPUTS is filled.
+# BEFORE IMPORT: fill the five variables below, the real Odoo ports, every
+# FORCE_ADSL domain, and only those ADSL_STARLINK clients required on day one.
+# DO NOT pre-fill future OmniTik/Wi-Fi clients: discover and authorize them
+# after import through POOL_ENROLLMENT as documented in the deployment guide.
 
 # ============================================================================
 # PHASE 0 - USER INPUTS AND SAFETY GUARDS

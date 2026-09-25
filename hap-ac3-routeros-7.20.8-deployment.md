@@ -1,5 +1,25 @@
 # Despliegue canónico del hAP ac3 — RouterOS 7.20.8
 
+## Lista inequívoca: qué se rellena y cuándo
+
+### Antes de importar
+
+- Las cinco variables de `PHASE 0`: IP `/32` y MAC del administrador, SSID,
+  contraseña WPA2 y país.
+- Los puertos reales de Odoo.
+- Los dominios `FORCE_ADSL`.
+- Sólo los clientes `ADSL_STARLINK` que deban funcionar desde el primer corte.
+
+### No se rellena antes de importar
+
+- Las IP/MAC de futuros clientes conectados mediante OmniTik, `wlan1` o
+  `wlan2`. Esos equipos se descubren posteriormente en `POOL_ENROLLMENT`, se
+  convierten en reservas y se asignan a `OMNI_ODOO_ONLY` o
+  `OMNI_ODOO_STARLINK` siguiendo la sección de enrolamiento.
+
+Esta separación es intencional: permite instalar el router con una identidad
+administrativa segura sin exigir un inventario anticipado de todos los clientes.
+
 ## Estado y alcance
 
 Este paquete está diseñado exclusivamente para el **MikroTik hAP ac3
