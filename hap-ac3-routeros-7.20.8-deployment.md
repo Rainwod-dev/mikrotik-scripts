@@ -12,10 +12,11 @@ El archivo [`hap-ac3-routeros-7.20.8.rsc`](hap-ac3-routeros-7.20.8.rsc) es una
 plantilla ejecutable con guardas: **aborta antes del primer cambio** mientras
 falte cualquiera de estos datos:
 
-1. IP o red de administración confiable;
-2. SSID inalámbrico;
-3. contraseña WPA2 de 8 a 63 caracteres;
-4. país reglamentario para las radios.
+1. IP `/32` del equipo administrador;
+2. MAC del equipo administrador;
+3. SSID inalámbrico;
+4. contraseña WPA2 de 8 a 63 caracteres;
+5. país reglamentario para las radios.
 
 ## Cableado obligatorio
 
@@ -35,22 +36,23 @@ ser puertos del bridge `BR_MANAGED`.
 
 Además, antes de desplegar se deben completar las entradas comentadas para:
 
-- cada dispositivo `ADSL_STARLINK` (IP, MAC y nombre);
-- cada dispositivo `OMNI_ODOO_ONLY` (MAC, IP fija y nombre);
-- cada dispositivo `OMNI_ODOO_STARLINK` (MAC, IP fija y nombre);
+- cada dispositivo `ADSL_STARLINK` que necesite estar autorizado desde el
+  primer momento (IP, MAC y nombre);
 - cada dominio `FORCE_ADSL`;
 - los puertos TCP/UDP exactos de Odoo.
+
+Las MAC de los futuros clientes OmniTik/Wi-Fi **no se rellenan antes de
+importar**: se descubren y autorizan posteriormente mediante el pool de
+enrolamiento descrito en esta guía.
 
 No se han inventado valores de producción. No se debe importar el archivo sin
 revisar y completar esos datos.
 
-> **No basta con completar las cuatro variables iniciales.** Si únicamente se
-> rellenan administración, SSID, contraseña y país, el script se puede importar,
-> pero `DHCP_MANAGED` no entregará direcciones porque es `static-only`, ningún
-> dominio formará parte de `FORCE_ADSL` y el firewall rechazará Odoo desde la red
-> administrada al no existir reglas con sus puertos reales. Antes de utilizarlo
-> en producción también son obligatorias las entradas de dispositivos, dominios
-> y puertos enumeradas arriba.
+> **No basta con completar las cinco variables iniciales.** Éstas permiten una
+> importación segura y acceso administrativo IP+MAC. Los dispositivos nuevos
+> recibirán una dirección de cuarentena `192.168.88.200-239`, pero no tendrán
+> Odoo ni Internet hasta que el administrador los registre. Antes de finalizar
+> el despliegue también son obligatorios los dominios y puertos enumerados arriba.
 
 ## Arquitectura implementada
 
@@ -68,9 +70,11 @@ revisar y completar esos datos.
 - **OmniTik y Wi-Fi:** `ether3`, `wlan1` y `wlan2` pertenecen a `BR_MANAGED`.
   Los clientes inalámbricos que deban usar Odoo, Starlink y las excepciones
   ADSL se registran en `OMNI_ODOO_STARLINK`.
-- **DHCP:** `DHCP_MANAGED` es `static-only`, añade ARP y el bridge usa
-  `reply-only`. Cada concesión estática tiene una pertenencia explícita a un
-  grupo de firewall.
+- **DHCP/enrolamiento:** un equipo desconocido recibe temporalmente
+  `192.168.88.200-239` para que el administrador vea su MAC, pero no pertenece a
+  ningún grupo y el firewall le niega forwarding. Después se convierte en lease
+  estático `192.168.88.10-199` y se añade a exactamente un grupo. El servidor
+  añade ARP y el bridge usa `reply-only`.
 - **Política:** mangle excluye primero Odoo y `FORCE_ADSL`; después sólo marca
   para Starlink las fuentes autorizadas. El firewall aplica permisos concretos
   y denegación final.
@@ -88,7 +92,7 @@ La implementación fue contrastada con la documentación oficial de MikroTik:
 - [DNS](https://help.mikrotik.com/docs/spaces/ROS/pages/37748767/DNS):
   `address-list`, `match-subdomain` y expiración por TTL.
 - [DHCP](https://help.mikrotik.com/docs/spaces/ROS/pages/24805500/DHCP): cliente
-  DHCP dentro de una VRF, servidor `static-only` y propiedades relacionadas.
+  DHCP dentro de una VRF, leases estáticos, pools y propiedades relacionadas.
 - [Firewall Filter](https://help.mikrotik.com/docs/spaces/ROS/pages/48660574/Filter): estados de conexión, cadenas y acciones de filtrado.
 - [Wireless Interface](https://help.mikrotik.com/docs/spaces/ROS/pages/8978446/Wireless+Interface): modo AP, país, seguridad WPA2 y parámetros de las radios legacy.
 - [Bridging and Switching](https://help.mikrotik.com/docs/spaces/ROS/pages/328068/Bridging+and+Switching): bridge y pertenencia de puertos.
@@ -128,18 +132,21 @@ ejecute el cambio desde el enlace que vaya a renombrarse o desde Wi-Fi.
 
 ## Preparación del script
 
-1. Copie el `.rsc` y edite las cuatro variables de `PHASE 0`: red de gestión,
-   SSID, contraseña WPA2 y país.
-   Para confiar **solamente** en el equipo `192.168.1.101`, use:
+1. Copie el `.rsc` y edite las cinco variables de `PHASE 0`. Por ejemplo, para
+   que sólo el equipo `192.168.1.101` con MAC `AA:BB:CC:DD:EE:FF` administre:
 
    ```routeros
-   :local trustedManagementCidr "192.168.1.101/32"
+   :local trustedManagementIpCidr "192.168.1.101/32"
+   :local trustedManagementMac "AA:BB:CC:DD:EE:FF"
+   :local wifiSSID "EMPRESA"
+   :local wifiPassphrase "CAMBIAR-EN-COPIA-LOCAL"
+   :local wifiCountry "united states"
    ```
 
-   `192.168.1.101/24` equivale a confiar en la red completa
-   `192.168.1.0/24`; no representa únicamente al host `.101`. Use `/24` sólo si
-   desea autorizar deliberadamente todos los equipos de esa LAN para SSH,
-   WinBox e ICMP hacia el hAP.
+   Tanto IP como MAC deben coincidir para SSH, WinBox e ICMP. No use
+   `192.168.1.101/24`: autorizaría el prefijo completo `192.168.1.0/24` en la
+   restricción del servicio. La contraseña del ejemplo debe sustituirse y nunca
+   confirmarse en Git.
 
    Para una instalación físicamente ubicada en Estados Unidos use exactamente:
 
@@ -160,17 +167,18 @@ ejecute el cambio desde el enlace que vaya a renombrarse o desde Wi-Fi.
    Utilice este país únicamente cuando el equipo esté físicamente en Estados
    Unidos; la selección limita canales y potencia conforme al dominio
    regulatorio.
-2. Descomente y duplique las parejas de concesión/lista para todos los equipos
-   OmniTik **y Wi-Fi**. Los clientes de `wlan1`/`wlan2` que requieren Odoo,
-   Starlink y dominios por ADSL deben pertenecer a `OMNI_ODOO_STARLINK`. No
-   reutilice direcciones.
+2. No necesita conocer previamente las MAC de OmniTik/Wi-Fi. Tras importar,
+   siga el procedimiento de enrolamiento de la sección siguiente.
 3. Para cada equipo ADSL autorizado, descomente las cuatro líneas: lista IP,
    ruta `/32` de retorno y las dos reglas `src-address` + `src-mac-address`.
 4. Descomente una entrada DNS por cada dominio. `match-subdomain=yes` cubre el
    nombre base y sus subdominios.
 5. Sustituya los ejemplos de puertos de Odoo por sus puertos reales y cree las
    reglas para ambos grupos OmniTik. Si Odoo usa UDP, cree reglas UDP separadas.
-6. Añada entradas adicionales a `TRUSTED_MANAGEMENT` si hay más administradores.
+6. El diseño inicial autoriza una sola pareja IP+MAC administrativa. Si necesita
+   más administradores, cree para cada uno reglas input equivalentes con su
+   propia IP `/32` y MAC, y añada sus `/32` al parámetro `address` de SSH y
+   WinBox; no amplíe el primer administrador a `/24`.
 7. Revise todo el archivo. La importación está diseñada para hacerse una sola
    vez sobre el export mínimo suministrado; no es un reconciliador idempotente.
 
@@ -182,6 +190,51 @@ Importe con:
 
 Mantenga Safe Mode hasta completar las comprobaciones básicas de rutas,
 administración y Odoo.
+
+## Cómo registrar dispositivos después de importar
+
+El pool `192.168.88.200-239` es sólo de descubrimiento. Los equipos desconocidos
+pueden asociarse y obtener DHCP, pero la regla `CANONICAL: managed default deny`
+les impide llegar a Odoo, ADSL o Starlink.
+
+1. Conecte el nuevo equipo por OmniTik, `wlan1` o `wlan2`.
+2. Desde la sesión administrativa IP+MAC, localice la concesión dinámica:
+
+   ```routeros
+   /ip dhcp-server lease print detail where server=DHCP_MANAGED
+   ```
+
+3. Copie su MAC, elija una IP libre de `192.168.88.10-199` y cree la reserva.
+   Reemplace los valores de ejemplo:
+
+   ```routeros
+   /ip dhcp-server lease remove [find where server=DHCP_MANAGED && mac-address="AA:BB:CC:DD:EE:01"]
+   /ip dhcp-server lease add server=DHCP_MANAGED mac-address=AA:BB:CC:DD:EE:01 address=192.168.88.20 comment="PC CONTABILIDAD"
+   ```
+
+4. Asigne **exactamente un** grupo:
+
+   ```routeros
+   # Odoo sin Internet
+   /ip firewall address-list add list=OMNI_ODOO_ONLY address=192.168.88.20 comment="PC CONTABILIDAD"
+
+   # O bien: Odoo + Starlink + dominios FORCE_ADSL
+   /ip firewall address-list add list=OMNI_ODOO_STARLINK address=192.168.88.20 comment="PC CONTABILIDAD"
+   ```
+
+5. Renueve DHCP en el cliente y compruebe que obtiene `192.168.88.20`. Si cambia
+   de grupo, elimine primero su entrada anterior para evitar doble pertenencia:
+
+   ```routeros
+   /ip firewall address-list remove [find where list=OMNI_ODOO_ONLY && address=192.168.88.20]
+   ```
+
+Para dar Starlink a un equipo que ya está en la LAN ADSL, éste debe conservar
+una IP fija `192.168.1.x` y usar gateway `.254`. Añada su IP a
+`ADSL_STARLINK`, una ruta `/32` en `vrf-starlink` y las dos reglas forward que
+combinan esa IP con su MAC; copie y adapte las cuatro líneas de `PHASE 4` del
+script. Este alta requiere una ventana de mantenimiento porque modifica reglas
+activas.
 
 ## Cambios externos separados
 
@@ -233,8 +286,9 @@ Reserve/configure la IP autorizada y cambie únicamente su gateway a
 
 1. Sin salir de Safe Mode, confirme que `WAN_STARLINK` tiene una concesión DHCP
    y una ruta predeterminada en `vrf-starlink`.
-2. Confirme que puede volver a abrir WinBox o SSH desde
-   `trustedManagementCidr`; no cierre la sesión original antes de probarlo.
+2. Confirme que puede volver a abrir WinBox o SSH desde la pareja
+   `trustedManagementIpCidr` + `trustedManagementMac`; no cierre la sesión
+   original antes de probarlo.
 3. Aplique en Odoo la ruta persistente `192.168.88.0/24 via 192.168.1.254` y
    pruebe el retorno antes de continuar.
 4. Convierta OmniTik a bridge/AP, quite su DHCP/NAT y conecte su uplink a

@@ -7,15 +7,16 @@
 # ============================================================================
 # PHASE 0 - USER INPUTS AND SAFETY GUARDS
 # ============================================================================
-# One administrator host example: "192.168.1.101/32". Using /24 trusts every
-# host in 192.168.1.0/24, not only .101.
-:local trustedManagementCidr ""
+# Administrator identity: BOTH values must match. For one host use /32.
+:local trustedManagementIpCidr ""
+:local trustedManagementMac ""
 :local wifiSSID ""
 :local wifiPassphrase ""
 # For a device physically installed in the United States, use "united states".
 :local wifiCountry ""
 
-:if ([:len $trustedManagementCidr] = 0) do={ :error "SET trustedManagementCidr before installing the input firewall" }
+:if ([:len $trustedManagementIpCidr] = 0) do={ :error "SET trustedManagementIpCidr (use /32 for one host)" }
+:if ([:len $trustedManagementMac] = 0) do={ :error "SET trustedManagementMac" }
 :if ([:len $wifiSSID] = 0) do={ :error "SET wifiSSID" }
 :if (([:len $wifiPassphrase] < 8) || ([:len $wifiPassphrase] > 63)) do={ :error "wifiPassphrase must contain 8 to 63 characters" }
 :if ([:len $wifiCountry] = 0) do={ :error "SET wifiCountry to the RouterOS country value for the installation" }
@@ -71,12 +72,15 @@
 # ============================================================================
 # PHASE 4 - MANAGED DHCP/ARP
 # ============================================================================
-/ip dhcp-server add name=DHCP_MANAGED interface=BR_MANAGED address-pool=static-only lease-time=1d add-arp=yes authoritative=yes disabled=no comment="Canonical static-only OmniTik/Wi-Fi DHCP"
+/ip pool add name=POOL_ENROLLMENT ranges=192.168.88.200-192.168.88.239 comment="Quarantine/onboarding only; no forwarding group"
+/ip dhcp-server add name=DHCP_MANAGED interface=BR_MANAGED address-pool=POOL_ENROLLMENT lease-time=1h add-arp=yes authoritative=yes disabled=no comment="Managed DHCP; unknown clients remain quarantined"
 /ip dhcp-server network add address=192.168.88.0/24 gateway=192.168.88.1 dns-server=192.168.88.1 comment="Canonical managed DHCP options"
 
 # REQUIRED DEVICE ENTRIES - duplicate and uncomment one pair per managed device.
 # The lease address and firewall address-list MUST agree.
-# With no uncommented leases, DHCP_MANAGED intentionally gives no client an IP.
+# Unknown clients may receive 192.168.88.200-239 only so the administrator can
+# discover their MAC. They have no Odoo/Internet permission until converted to
+# a static lease in 192.168.88.10-199 and added to exactly one policy list.
 # /ip dhcp-server lease add server=DHCP_MANAGED mac-address=AA:BB:CC:DD:EE:01 address=192.168.88.10 comment="DEVICE - Odoo only"
 # /ip firewall address-list add list=OMNI_ODOO_ONLY address=192.168.88.10 comment="DEVICE - Odoo only"
 # /ip dhcp-server lease add server=DHCP_MANAGED mac-address=AA:BB:CC:DD:EE:02 address=192.168.88.20 comment="DEVICE - Odoo + Starlink (use for wlan1/wlan2 clients)"
@@ -136,16 +140,15 @@
 # ============================================================================
 # PHASE 8 - FIREWALL INPUT (router services)
 # ============================================================================
-/ip firewall address-list add list=TRUSTED_MANAGEMENT address=$trustedManagementCidr comment="Canonical administrator source"
 /ip firewall filter add chain=input connection-state=established,related,untracked action=accept comment="CANONICAL: input established"
 /ip firewall filter add chain=input connection-state=invalid action=drop comment="CANONICAL: input invalid"
-/ip firewall filter add chain=input protocol=icmp src-address-list=TRUSTED_MANAGEMENT action=accept comment="CANONICAL: trusted ICMP"
+/ip firewall filter add chain=input src-address=$trustedManagementIpCidr src-mac-address=$trustedManagementMac protocol=icmp action=accept comment="CANONICAL: administrator IP+MAC ICMP"
 /ip firewall filter add chain=input in-interface=BR_MANAGED protocol=udp src-port=68 dst-port=67 action=accept comment="CANONICAL: managed DHCP"
 /ip firewall filter add chain=input in-interface=BR_MANAGED protocol=udp dst-port=53 action=accept comment="CANONICAL: managed DNS UDP"
 /ip firewall filter add chain=input in-interface=BR_MANAGED protocol=tcp dst-port=53 action=accept comment="CANONICAL: managed DNS TCP"
 /ip firewall filter add chain=input src-address-list=ADSL_STARLINK protocol=udp dst-port=53 action=accept comment="CANONICAL: authorized ADSL DNS UDP"
 /ip firewall filter add chain=input src-address-list=ADSL_STARLINK protocol=tcp dst-port=53 action=accept comment="CANONICAL: authorized ADSL DNS TCP"
-/ip firewall filter add chain=input src-address-list=TRUSTED_MANAGEMENT protocol=tcp dst-port=22,8291 action=accept comment="CANONICAL: trusted SSH and WinBox"
+/ip firewall filter add chain=input src-address=$trustedManagementIpCidr src-mac-address=$trustedManagementMac protocol=tcp dst-port=22,8291 action=accept comment="CANONICAL: administrator IP+MAC SSH and WinBox"
 /ip firewall filter add chain=input action=drop log=yes log-prefix="DROP_INPUT " comment="CANONICAL: input default deny"
 
 # Limit service daemons as defense in depth. WebFig, API, FTP and Telnet remain
@@ -156,8 +159,8 @@
 /ip service set www-ssl disabled=yes
 /ip service set api disabled=yes
 /ip service set api-ssl disabled=yes
-/ip service set ssh disabled=no address=$trustedManagementCidr
-/ip service set winbox disabled=no address=$trustedManagementCidr
+/ip service set ssh disabled=no address=$trustedManagementIpCidr
+/ip service set winbox disabled=no address=$trustedManagementIpCidr
 /ip socks set enabled=no
 /ip upnp set enabled=no
 /ip proxy set enabled=no
