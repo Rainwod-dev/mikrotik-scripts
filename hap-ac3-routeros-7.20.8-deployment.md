@@ -122,6 +122,25 @@ ejecute el cambio desde el enlace que vaya a renombrarse o desde Wi-Fi.
 
 1. Copie el `.rsc` y edite las cuatro variables de `PHASE 0`: red de gestión,
    SSID, contraseña WPA2 y país.
+   Para una instalación físicamente ubicada en Estados Unidos use exactamente:
+
+   ```routeros
+   :local wifiCountry "united states"
+   ```
+
+   El valor no es un código ISO como `US`; es el nombre que acepta el paquete
+   legacy `wireless`. Puede comprobar el dominio regulatorio y los canales
+   resultantes después de importarlo con:
+
+   ```routeros
+   /interface wireless info country-info country="united states"
+   /interface wireless info allowed-channels wlan1
+   /interface wireless info allowed-channels wlan2
+   ```
+
+   Utilice este país únicamente cuando el equipo esté físicamente en Estados
+   Unidos; la selección limita canales y potencia conforme al dominio
+   regulatorio.
 2. Descomente y duplique las parejas de concesión/lista para todos los equipos
    OmniTik **y Wi-Fi**. Los clientes de `wlan1`/`wlan2` que requieren Odoo,
    Starlink y dominios por ADSL deben pertenecer a `OMNI_ODOO_STARLINK`. No

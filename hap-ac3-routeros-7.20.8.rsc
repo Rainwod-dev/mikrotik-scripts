@@ -10,6 +10,7 @@
 :local trustedManagementCidr ""
 :local wifiSSID ""
 :local wifiPassphrase ""
+# For a device physically installed in the United States, use "united states".
 :local wifiCountry ""
 
 :if ([:len $trustedManagementCidr] = 0) do={ :error "SET trustedManagementCidr before installing the input firewall" }
