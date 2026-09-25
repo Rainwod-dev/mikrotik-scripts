@@ -4,18 +4,34 @@
 
 Este paquete está diseñado exclusivamente para el **MikroTik hAP ac3
 RBD53iG-5HacD2HnD con RouterOS 7.20.8**. El export recibido sólo contiene la
-configuración de `wlan1`, `wlan2` y el perfil inalámbrico predeterminado; el
-script conserva esos elementos y no conecta Wi-Fi silenciosamente a ninguna
-LAN.
+configuración mínima de `wlan1`, `wlan2` y el perfil inalámbrico predeterminado.
+El script configura ambas radios como AP, con WPA2-AES, y las incorpora junto
+con OmniTik al segmento administrado `192.168.88.0/24`.
 
 El archivo [`hap-ac3-routeros-7.20.8.rsc`](hap-ac3-routeros-7.20.8.rsc) es una
 plantilla ejecutable con guardas: **aborta antes del primer cambio** mientras
 falte cualquiera de estos datos:
 
-1. puerto físico de Starlink;
-2. puerto físico de ADSL;
-3. puerto físico hacia OmniTik;
-4. IP o red de administración confiable.
+1. IP o red de administración confiable;
+2. SSID inalámbrico;
+3. contraseña WPA2 de 8 a 63 caracteres;
+4. país reglamentario para las radios.
+
+## Cableado obligatorio
+
+El script usa un mapeo fijo y documentado; conecte los cables **antes de
+importarlo** de esta forma:
+
+| Puerto físico hAP | Nombre después del script | Conexión |
+|---|---|---|
+| `ether1` | `WAN_STARLINK` | Puerto LAN del router Starlink |
+| `ether2` | `LAN_ADSL` | Switch/LAN existente del router ADSL |
+| `ether3` | `LAN_OMNITIK` | Puerto bridge/uplink del OmniTik |
+| `ether4`, `ether5` | sin cambios | Reservados; no forman parte de este diseño |
+
+No intercambie `ether1` y `ether2`: ambos enlaces usan `192.168.1.0/24`, pero
+solamente `ether1` entra en `vrf-starlink`. `ether3`, `wlan1` y `wlan2` pasan a
+ser puertos del bridge `BR_MANAGED`.
 
 Además, antes de desplegar se deben completar las entradas comentadas para:
 
@@ -31,17 +47,20 @@ revisar y completar esos datos.
 ## Arquitectura implementada
 
 - **Tabla principal:** contiene `LAN_ADSL`, `192.168.1.254/24`,
-  `LAN_OMNITIK`, `192.168.88.1/24` y la ruta predeterminada ADSL mediante
+  `BR_MANAGED`, `192.168.88.1/24` y la ruta predeterminada ADSL mediante
   `192.168.1.1`.
 - **`vrf-starlink`:** contiene únicamente `WAN_STARLINK`. El cliente DHCP
   instala en esta VRF la dirección, ruta conectada y ruta predeterminada de
   Starlink, evitando el conflicto con el `192.168.1.0/24` de ADSL.
 - **Retorno desde Starlink:** cada cliente ADSL autorizado exige una ruta `/32`
   desde `vrf-starlink` hacia `LAN_ADSL@main`; `192.168.88.0/24` tiene una fuga
-  explícita hacia `LAN_OMNITIK@main`.
+  explícita hacia `BR_MANAGED@main`.
 - **Odoo:** se mantiene en la tabla principal y no coincide con ninguna regla
   NAT. El servidor devuelve `192.168.88.0/24` por `192.168.1.254`.
-- **DHCP:** `DHCP_OMNITIK` es `static-only`, añade ARP y la interfaz usa
+- **OmniTik y Wi-Fi:** `ether3`, `wlan1` y `wlan2` pertenecen a `BR_MANAGED`.
+  Los clientes inalámbricos que deban usar Odoo, Starlink y las excepciones
+  ADSL se registran en `OMNI_ODOO_STARLINK`.
+- **DHCP:** `DHCP_MANAGED` es `static-only`, añade ARP y el bridge usa
   `reply-only`. Cada concesión estática tiene una pertenencia explícita a un
   grupo de firewall.
 - **Política:** mangle excluye primero Odoo y `FORCE_ADSL`; después sólo marca
@@ -63,6 +82,8 @@ La implementación fue contrastada con la documentación oficial de MikroTik:
 - [DHCP](https://help.mikrotik.com/docs/spaces/ROS/pages/24805500/DHCP): cliente
   DHCP dentro de una VRF, servidor `static-only` y propiedades relacionadas.
 - [Firewall Filter](https://help.mikrotik.com/docs/spaces/ROS/pages/48660574/Filter): estados de conexión, cadenas y acciones de filtrado.
+- [Wireless Interface](https://help.mikrotik.com/docs/spaces/ROS/pages/8978446/Wireless+Interface): modo AP, país, seguridad WPA2 y parámetros de las radios legacy.
+- [Bridging and Switching](https://help.mikrotik.com/docs/spaces/ROS/pages/328068/Bridging+and+Switching): bridge y pertenencia de puertos.
 
 La documentación actual también indica que seleccionar la VRF en la que DNS
 escucha está disponible desde RouterOS 7.21. Por eso, en 7.20.8, el DNS del hAP
@@ -73,14 +94,13 @@ permanece en `main`; sólo su salida upstream usa la ruta ADSL de `main`.
 1. Confirmar que el equipo sigue ejecutando exactamente RouterOS 7.20.8.
 2. Obtener otro `/export hide-sensitive` inmediatamente antes del cambio y
    comparar que no aparecieron configuraciones nuevas.
-3. Identificar físicamente los tres puertos con `/interface ethernet print`.
+3. Etiquetar físicamente `ether1=Starlink`, `ether2=ADSL` y `ether3=OmniTik`.
 4. Confirmar una estación de administración con IP fija y conexión por cable.
 5. Mantener acceso físico al hAP y conocer el procedimiento Netinstall/reset.
 6. Confirmar que Starlink y ADSL continúan en `192.168.1.0/24` con gateway
    `192.168.1.1`.
-7. Confirmar que no se requiere incorporar `wlan1` o `wlan2` al segmento
-   administrado. Este diseño las conserva, pero no las habilita como vía de
-   acceso.
+7. Elegir SSID, contraseña WPA2 y país reglamentario. No guarde la contraseña
+   real en Git; edítela únicamente en la copia que se cargará al router.
 
 ## Preparación y copias de seguridad
 
@@ -100,9 +120,12 @@ ejecute el cambio desde el enlace que vaya a renombrarse o desde Wi-Fi.
 
 ## Preparación del script
 
-1. Copie el `.rsc` y edite las cuatro variables de `PHASE 0`.
+1. Copie el `.rsc` y edite las cuatro variables de `PHASE 0`: red de gestión,
+   SSID, contraseña WPA2 y país.
 2. Descomente y duplique las parejas de concesión/lista para todos los equipos
-   OmniTik. No reutilice direcciones.
+   OmniTik **y Wi-Fi**. Los clientes de `wlan1`/`wlan2` que requieren Odoo,
+   Starlink y dominios por ADSL deben pertenecer a `OMNI_ODOO_STARLINK`. No
+   reutilice direcciones.
 3. Para cada equipo ADSL autorizado, descomente las cuatro líneas: lista IP,
    ruta `/32` de retorno y las dos reglas `src-address` + `src-mac-address`.
 4. Descomente una entrada DNS por cada dominio. `match-subdomain=yes` cubre el
@@ -142,7 +165,7 @@ el firewall del servidor permite los puertos confirmados desde
 2. Configure administración estática `192.168.88.2/24`.
 3. Configure gateway y DNS `192.168.88.1` sólo para su propio tráfico de
    gestión.
-4. Conecte su puerto bridge al puerto hAP elegido como `LAN_OMNITIK`.
+4. Conecte su puerto bridge exclusivamente a `ether3` (`LAN_OMNITIK`) del hAP.
 
 ### Clientes ADSL autorizados
 
@@ -167,6 +190,26 @@ Reserve/configure la IP autorizada y cambie únicamente su gateway a
 - IPv6 no tiene todavía un diseño de políticas equivalente. El script bloquea
   forwarding IPv6 entrante desde los segmentos de política para impedir bypass,
   sin desinstalar ni desactivar IPv6 en el router.
+
+## Qué hacer inmediatamente después de ejecutar el script
+
+1. Sin salir de Safe Mode, confirme que `WAN_STARLINK` tiene una concesión DHCP
+   y una ruta predeterminada en `vrf-starlink`.
+2. Confirme que puede volver a abrir WinBox o SSH desde
+   `trustedManagementCidr`; no cierre la sesión original antes de probarlo.
+3. Aplique en Odoo la ruta persistente `192.168.88.0/24 via 192.168.1.254` y
+   pruebe el retorno antes de continuar.
+4. Convierta OmniTik a bridge/AP, quite su DHCP/NAT y conecte su uplink a
+   `ether3`.
+5. En cada cliente ADSL autorizado, establezca gateway `192.168.1.254` y
+   compruebe que su IP/MAC coincide con las cuatro entradas del script.
+6. Conecte un dispositivo registrado a cada radio. `wlan1` y `wlan2` comparten
+   SSID y política; el dispositivo debe obtener únicamente su IP reservada de
+   `DHCP_MANAGED`.
+7. Resuelva cada dominio forzado usando `192.168.88.1` y confirme que aparecen
+   direcciones dinámicas en `FORCE_ADSL`.
+8. Ejecute toda la matriz de aceptación siguiente. Salga de Safe Mode sólo
+   cuando administración, Odoo y ambos egresos hayan sido comprobados.
 
 ## Validación
 
@@ -211,13 +254,16 @@ Pruebe ambos gateways desde el router indicando tabla:
    a los puertos aprobados de Odoo y no llega a Internet ni a otros hosts ADSL.
 5. **`OMNI_ODOO_STARLINK`:** llega a Odoo, usa Starlink normalmente y ADSL sólo
    para `FORCE_ADSL`.
-6. **IP visible en Odoo:** el log debe mostrar `192.168.88.x`, nunca
+6. **Wi-Fi en ambas bandas:** un cliente registrado prueba primero `wlan1` y
+   luego `wlan2`; en ambos casos recibe la misma reserva, llega a Odoo, usa
+   Starlink para destinos generales y ADSL para `FORCE_ADSL`.
+7. **IP visible en Odoo:** el log debe mostrar `192.168.88.x`, nunca
    `192.168.1.254`.
-7. **Dominio forzado:** vacíe caché DNS, resuelva mediante `192.168.88.1`, revise
+8. **Dominio forzado:** vacíe caché DNS, resuelva mediante `192.168.88.1`, revise
    `FORCE_ADSL` y observe aumentar la regla NAT ADSL sólo para clientes OmniTik.
-8. **Solapamiento:** confirme las dos rutas conectadas en tablas distintas y
+9. **Solapamiento:** confirme las dos rutas conectadas en tablas distintas y
    ausencia de bridge físico entre WAN y ADSL.
-9. **Persistencia:** reinicie en una ventana controlada y repita las consultas
+10. **Persistencia:** reinicie en una ventana controlada y repita las consultas
    de estado y la matriz completa.
 
 Use `traceroute`, contadores de reglas y una IP pública de diagnóstico aprobada
