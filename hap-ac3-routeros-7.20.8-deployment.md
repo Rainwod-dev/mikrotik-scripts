@@ -264,14 +264,17 @@ ruta con `routing-table=vrf-starlink` durante ese intervalo y detenerse con:
 Script Error: input does not match any value of routing-table
 ```
 
-La versión corregida espera hasta cinco segundos y sólo continúa después de
-encontrar exactamente una tabla llamada `vrf-starlink`; si no aparece, aborta
-con un error explícito. No continúe manualmente desde el punto del fallo ni
-vuelva a importar sobre la configuración parcial. Si el indicador `<SAFE>`
-sigue presente, pulse `Ctrl+D` en un prompt vacío para cerrar la sesión y
-revertir los cambios. Después confirme que recuperó la configuración anterior,
-aplique otra vez los ocho valores de producción a una copia limpia del script
-corregido e importe desde una nueva sesión en Safe Mode.
+La versión corregida espera cinco segundos y sólo continúa después de encontrar
+exactamente una tabla llamada `vrf-starlink`; si no aparece, aborta con un error
+explícito. La espera usa `:delay`: no usa `:break`, que el intérprete de
+RouterOS 7.20.8 rechaza aunque figure en el manual de scripting vigente, que no
+está congelado para esta versión exacta. No continúe manualmente desde el punto
+del fallo ni vuelva a importar sobre la configuración parcial. Si el indicador
+`<SAFE>` sigue presente, pulse `Ctrl+D` en un prompt vacío para cerrar la sesión
+y revertir los cambios.
+Después confirme que recuperó la configuración anterior, aplique otra vez los
+ocho valores de producción a una copia limpia del script corregido e importe
+desde una nueva sesión en Safe Mode.
 
 Si el prompt ya no contiene `<SAFE>`, los cambios parciales no se revertirán al
 cerrar la sesión. Compruebe primero que existe la copia automática anterior a

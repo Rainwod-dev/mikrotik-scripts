@@ -81,17 +81,11 @@
 /ip vrf add name=vrf-starlink interfaces=WAN_STARLINK place-before=[find where name=main] comment="Overlapping Starlink 192.168.1.0/24"
 
 # RouterOS creates the routing table mapped to a VRF dynamically. On 7.20.8
-# that table can become visible shortly after /ip vrf add returns. Wait up to
-# five seconds so later static routes and routing marks cannot race its creation.
-:local vrfTableReady false
-:for vrfWaitAttempt from=1 to=50 do={
-    :if ([:len [/routing table find where name="vrf-starlink"]] = 1) do={
-        :set vrfTableReady true
-        :break
-    }
-    :delay 100ms
-}
-:if ($vrfTableReady = false) do={ :error "vrf-starlink routing table was not created within 5 seconds" }
+# that table can become visible shortly after /ip vrf add returns. This fixed
+# delay uses only 7.20.8-supported syntax and prevents later routes and routing
+# marks from racing the dynamic table creation.
+:delay 5s
+:if ([:len [/routing table find where name="vrf-starlink"]] != 1) do={ :error "vrf-starlink routing table was not created after 5 seconds" }
 
 # ============================================================================
 # PHASE 3 - ADDRESSING AND WAN DHCP
