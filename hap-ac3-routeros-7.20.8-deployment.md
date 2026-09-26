@@ -31,6 +31,7 @@ El archivo [`hap-ac3-routeros-7.20.8.rsc`](hap-ac3-routeros-7.20.8.rsc) es una
 plantilla ejecutable con guardas: **aborta antes del primer cambio** si el
 equipo no es un `hAP ac^3`, si la versión no es exactamente `7.20.8`, si no
 existen las interfaces esperadas, si falta cualquiera de los primeros cinco
+
 datos, si no se define ningún puerto de Odoo o si falta la lista de dominios:
 
 1. IP `/32` del equipo administrador;
