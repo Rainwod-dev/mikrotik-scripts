@@ -3,10 +3,12 @@
 # IMPORTANT: review hap-ac3-routeros-7.20.8-deployment.md before importing.
 # Physical map: ether1=Starlink, ether2=ADSL, ether3=OmniTik.
 # This file aborts until the mandatory USER INPUTS are valid.
-# BEFORE IMPORT: fill the seven variables below, every FORCE_ADSL domain, and
-# only those ADSL_STARLINK clients required on day one.
+# BEFORE IMPORT: fill the eight variables below and only those ADSL_STARLINK
+# clients required on day one.
 # DO NOT pre-fill future OmniTik/Wi-Fi clients: discover and authorize them
 # after import through POOL_ENROLLMENT as documented in the deployment guide.
+
+:do {
 
 # ============================================================================
 # PHASE 0 - USER INPUTS AND SAFETY GUARDS
@@ -22,6 +24,9 @@
 # Leave one protocol empty only when Odoo does not use that protocol.
 :local odooTcpPorts ""
 :local odooUdpPorts ""
+# Comma-separated domain names only: no spaces, scheme, port or URL path.
+# match-subdomain=yes makes every entry cover its apex and subdomains.
+:local forceAdslDomains ""
 
 # This configuration has been reviewed only for this exact hardware/OS pair.
 # Abort before backups or configuration changes on any other target.
@@ -36,6 +41,9 @@
 :if (([:len $wifiPassphrase] < 8) || ([:len $wifiPassphrase] > 63)) do={ :error "wifiPassphrase must contain 8 to 63 characters" }
 :if ([:len $wifiCountry] = 0) do={ :error "SET wifiCountry to the RouterOS country value for the installation" }
 :if (([:len $odooTcpPorts] = 0) && ([:len $odooUdpPorts] = 0)) do={ :error "SET at least one of odooTcpPorts or odooUdpPorts" }
+:if (([:typeof [:find $odooTcpPorts " "]] != "nil") || ([:typeof [:find $odooUdpPorts " "]] != "nil")) do={ :error "Odoo port lists must not contain spaces" }
+:if ([:len $forceAdslDomains] = 0) do={ :error "SET forceAdslDomains" }
+:if (([:typeof [:find $forceAdslDomains " "]] != "nil") || ([:typeof [:find $forceAdslDomains "://"]] != "nil") || ([:typeof [:find $forceAdslDomains "/"]] != "nil")) do={ :error "forceAdslDomains must contain comma-separated domain names only" }
 :if (([:len [/interface find where name=ether1]] != 1) || ([:len [/interface find where name=ether2]] != 1) || ([:len [/interface find where name=ether3]] != 1)) do={ :error "Expected default interfaces ether1, ether2 and ether3" }
 :if (([:len [/interface find where default-name=wlan1]] != 1) || ([:len [/interface find where default-name=wlan2]] != 1)) do={ :error "Expected legacy wireless interfaces wlan1 and wlan2" }
 
@@ -123,10 +131,11 @@
 # according to the received DNS TTL.
 /ip dns set allow-remote-requests=yes servers=1.1.1.1,9.9.9.9 cache-size=4096KiB address-list-extra-time=0s
 
-# REQUIRED FORCE_ADSL ENTRIES - use name plus match-subdomain=yes to cover the
-# apex and subdomains. Duplicate for every approved domain.
-# With no entries, no destination can be selected for forced ADSL routing.
-# /ip dns static add name=example.com type=FWD forward-to=1.1.1.1 match-subdomain=yes address-list=FORCE_ADSL comment="FORCE_ADSL domain"
+# Generate one DNS forward entry per Phase 0 domain. match-subdomain=yes covers
+# the apex and its subdomains; learned addresses expire with the received TTL.
+:foreach domain in=[:toarray $forceAdslDomains] do={
+    /ip dns static add name=$domain type=FWD forward-to=1.1.1.1 match-subdomain=yes address-list=FORCE_ADSL comment=("FORCE_ADSL: " . $domain)
+}
 
 # Redirect classic DNS from policy clients to the hAP cache. DoH/DoT is not
 # intercepted; see the deployment document for the explicit limitation.
@@ -217,3 +226,5 @@
 /ipv6 firewall filter add chain=forward in-interface=BR_MANAGED action=drop comment="CANONICAL: no ungoverned managed IPv6 forwarding"
 
 :put "Canonical base installed. Complete external changes and run every validation in the deployment document."
+
+}
