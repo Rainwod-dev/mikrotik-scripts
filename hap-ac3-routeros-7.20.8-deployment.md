@@ -4,9 +4,8 @@
 
 ### Antes de importar
 
-- Las cinco variables de `PHASE 0`: IP `/32` y MAC del administrador, SSID,
-  contraseña WPA2 y país.
-- Los puertos reales de Odoo.
+- Las siete variables de `PHASE 0`: IP `/32` y MAC del administrador, SSID,
+  contraseña WPA2, país y las listas de puertos TCP/UDP de Odoo.
 - Los dominios `FORCE_ADSL`.
 - Sólo los clientes `ADSL_STARLINK` que deban funcionar desde el primer corte.
 
@@ -29,14 +28,44 @@ El script configura ambas radios como AP, con WPA2-AES, y las incorpora junto
 con OmniTik al segmento administrado `192.168.88.0/24`.
 
 El archivo [`hap-ac3-routeros-7.20.8.rsc`](hap-ac3-routeros-7.20.8.rsc) es una
-plantilla ejecutable con guardas: **aborta antes del primer cambio** mientras
-falte cualquiera de estos datos:
+plantilla ejecutable con guardas: **aborta antes del primer cambio** si el
+equipo no es un `hAP ac^3`, si la versión no es exactamente `7.20.8`, si no
+existen las interfaces esperadas, si falta cualquiera de los primeros cinco
+datos o si no se define ningún puerto de Odoo:
 
 1. IP `/32` del equipo administrador;
 2. MAC del equipo administrador;
 3. SSID inalámbrico;
 4. contraseña WPA2 de 8 a 63 caracteres;
-5. país reglamentario para las radios.
+5. país reglamentario para las radios;
+6. puertos TCP de Odoo, si utiliza TCP;
+7. puertos UDP de Odoo, si utiliza UDP.
+
+Debe completarse al menos una de las dos variables de puertos de Odoo. Las
+guardas no pueden comprobar los valores que permanecen como líneas comentadas
+(dominios y altas `ADSL_STARLINK`), cuya revisión manual sigue siendo
+obligatoria.
+
+## Dictamen de revisión antes del despliegue
+
+El diseño, el script y esta guía son coherentes con RouterOS **7.20.8
+(long-term)** y con el `hAP ac^3` informado. Sin embargo, el archivo versionado
+es deliberadamente una **plantilla y no está listo para importarse tal cual**:
+
+- las siete variables de `PHASE 0` están vacías;
+- los dominios reales `FORCE_ADSL` siguen sin definir;
+- deben incorporarse los clientes `ADSL_STARLINK` necesarios para el primer
+  corte, si existe alguno;
+- aún se debe comparar un export inmediatamente anterior al cambio con el
+  export mínimo sobre el que se preparó la plantilla;
+- deben estar preparados la ruta de retorno de Odoo y el cambio de OmniTik a
+  bridge/AP.
+
+El estado pasa a **listo para proceder siguiendo la guía** únicamente cuando
+todos esos puntos se hayan completado en una copia local, se hayan etiquetado y
+cableado los tres puertos, se hayan descargado las copias de seguridad y el
+operador disponga de acceso físico y una sesión por cable en Safe Mode. No se
+deben guardar secretos ni valores de producción en este repositorio.
 
 ## Cableado obligatorio
 
@@ -68,7 +97,7 @@ enrolamiento descrito en esta guía.
 No se han inventado valores de producción. No se debe importar el archivo sin
 revisar y completar esos datos.
 
-> **No basta con completar las cinco variables iniciales.** Éstas permiten una
+> **No basta con configurar las siete variables iniciales.** Éstas permiten una
 > importación segura y acceso administrativo IP+MAC. Los dispositivos nuevos
 > recibirán una dirección de cuarentena `192.168.88.200-239`, pero no tendrán
 > Odoo ni Internet hasta que el administrador los registre. Antes de finalizar
@@ -147,12 +176,15 @@ Use un nombre con fecha/hora elegido por el operador, sin espacios. Ejemplo:
 Descargue ambos archivos fuera del router. El script toma además copias con el
 nombre fijo `pre-canonical-7.20.8`, pero éstas no sustituyen la copia fechada.
 
-Active **Safe Mode** (`Ctrl+X`) en una sesión cableada antes de importar. No
-ejecute el cambio desde el enlace que vaya a renombrarse o desde Wi-Fi.
+Active **Safe Mode** (`Ctrl+X`) en una sesión cableada desde la LAN ADSL antes
+de importar. No lo ejecute desde Wi-Fi, Starlink ni el enlace de OmniTik. El
+script renombra `ether2` como `LAN_ADSL`; por ello mantenga abierta la sesión
+original y confirme una segunda conexión administrativa antes de salir de Safe
+Mode.
 
 ## Preparación del script
 
-1. Copie el `.rsc` y edite las cinco variables de `PHASE 0`. Por ejemplo, para
+1. Copie el `.rsc` y edite las siete variables de `PHASE 0`. Por ejemplo, para
    que sólo el equipo `192.168.1.101` con MAC `AA:BB:CC:DD:EE:FF` administre:
 
    ```routeros
@@ -161,6 +193,8 @@ ejecute el cambio desde el enlace que vaya a renombrarse o desde Wi-Fi.
    :local wifiSSID "EMPRESA"
    :local wifiPassphrase "CAMBIAR-EN-COPIA-LOCAL"
    :local wifiCountry "united states"
+   :local odooTcpPorts "443,8069"
+   :local odooUdpPorts ""
    ```
 
    Tanto IP como MAC deben coincidir para SSH, WinBox e ICMP. No use
@@ -193,8 +227,11 @@ ejecute el cambio desde el enlace que vaya a renombrarse o desde Wi-Fi.
    ruta `/32` de retorno y las dos reglas `src-address` + `src-mac-address`.
 4. Descomente una entrada DNS por cada dominio. `match-subdomain=yes` cubre el
    nombre base y sus subdominios.
-5. Sustituya los ejemplos de puertos de Odoo por sus puertos reales y cree las
-   reglas para ambos grupos OmniTik. Si Odoo usa UDP, cree reglas UDP separadas.
+5. En `odooTcpPorts` y `odooUdpPorts` coloque listas RouterOS separadas por
+   comas y sin espacios; también puede utilizar rangos como `8071-8072`. El
+   script crea automáticamente las reglas para ambos grupos administrados antes
+   de la denegación general de Odoo. Deje una variable vacía únicamente si Odoo
+   no usa ese protocolo; al menos una de las dos debe contener un puerto.
 6. El diseño inicial autoriza una sola pareja IP+MAC administrativa. Si necesita
    más administradores, cree para cada uno reglas input equivalentes con su
    propia IP `/32` y MAC, y añada sus `/32` al parámetro `address` de SSH y
@@ -216,6 +253,13 @@ administración y Odoo.
 El pool `192.168.88.200-239` es sólo de descubrimiento. Los equipos desconocidos
 pueden asociarse y obtener DHCP, pero la regla `CANONICAL: managed default deny`
 les impide llegar a Odoo, ADSL o Starlink.
+
+No necesita conocer previamente la pareja IP/MAC de todos los equipos que se
+conectarán por OmniTik o por el Wi-Fi del hAP. Antes de importar sólo necesita
+la pareja IP/MAC del administrador y, si deben funcionar durante el primer
+corte, las parejas de los clientes `ADSL_STARLINK`. Los demás equipos se
+descubren en este pool, reciben después una IP fija elegida por el administrador
+y se asignan a uno de los dos grupos de política.
 
 1. Conecte el nuevo equipo por OmniTik, `wlan1` o `wlan2`.
 2. Desde la sesión administrativa IP+MAC, localice la concesión dinámica:

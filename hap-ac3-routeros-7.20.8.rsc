@@ -2,9 +2,9 @@
 # Target: RBD53iG-5HacD2HnD, RouterOS 7.20.8 only
 # IMPORTANT: review hap-ac3-routeros-7.20.8-deployment.md before importing.
 # Physical map: ether1=Starlink, ether2=ADSL, ether3=OmniTik.
-# This file deliberately aborts until every value in USER INPUTS is filled.
-# BEFORE IMPORT: fill the five variables below, the real Odoo ports, every
-# FORCE_ADSL domain, and only those ADSL_STARLINK clients required on day one.
+# This file aborts until the mandatory USER INPUTS are valid.
+# BEFORE IMPORT: fill the seven variables below, every FORCE_ADSL domain, and
+# only those ADSL_STARLINK clients required on day one.
 # DO NOT pre-fill future OmniTik/Wi-Fi clients: discover and authorize them
 # after import through POOL_ENROLLMENT as documented in the deployment guide.
 
@@ -18,13 +18,26 @@
 :local wifiPassphrase ""
 # For a device physically installed in the United States, use "united states".
 :local wifiCountry ""
+# Comma-separated RouterOS port lists, without spaces; ranges are accepted.
+# Leave one protocol empty only when Odoo does not use that protocol.
+:local odooTcpPorts ""
+:local odooUdpPorts ""
+
+# This configuration has been reviewed only for this exact hardware/OS pair.
+# Abort before backups or configuration changes on any other target.
+:local installedVersion [/system resource get version]
+:local installedBoard [/system resource get board-name]
+:if (($installedVersion != "7.20.8") && ($installedVersion != "7.20.8 (long-term)")) do={ :error ("Unsupported RouterOS version: " . $installedVersion . "; expected 7.20.8") }
+:if ($installedBoard != "hAP ac^3") do={ :error ("Unsupported board: " . $installedBoard . "; expected hAP ac^3") }
 
 :if ([:len $trustedManagementIpCidr] = 0) do={ :error "SET trustedManagementIpCidr (use /32 for one host)" }
 :if ([:len $trustedManagementMac] = 0) do={ :error "SET trustedManagementMac" }
 :if ([:len $wifiSSID] = 0) do={ :error "SET wifiSSID" }
 :if (([:len $wifiPassphrase] < 8) || ([:len $wifiPassphrase] > 63)) do={ :error "wifiPassphrase must contain 8 to 63 characters" }
 :if ([:len $wifiCountry] = 0) do={ :error "SET wifiCountry to the RouterOS country value for the installation" }
+:if (([:len $odooTcpPorts] = 0) && ([:len $odooUdpPorts] = 0)) do={ :error "SET at least one of odooTcpPorts or odooUdpPorts" }
 :if (([:len [/interface find where name=ether1]] != 1) || ([:len [/interface find where name=ether2]] != 1) || ([:len [/interface find where name=ether3]] != 1)) do={ :error "Expected default interfaces ether1, ether2 and ether3" }
+:if (([:len [/interface find where default-name=wlan1]] != 1) || ([:len [/interface find where default-name=wlan2]] != 1)) do={ :error "Expected legacy wireless interfaces wlan1 and wlan2" }
 
 # Refuse a second application rather than silently duplicate policy rules.
 :if ([:len [/ip firewall filter find where comment="CANONICAL: input established"]] > 0) do={ :error "Canonical configuration already appears to be installed" }
@@ -175,11 +188,16 @@
 /ip firewall filter add chain=forward connection-state=established,related,untracked action=accept comment="CANONICAL: forward established"
 /ip firewall filter add chain=forward connection-state=invalid action=drop comment="CANONICAL: forward invalid"
 
-# Odoo ports are intentionally placeholders. Add exact allow rules BEFORE the
-# Odoo deny rule after confirming whether Odoo uses 443, 8069, or other ports.
-# With no uncommented allow rules, managed/Wi-Fi access to Odoo is rejected.
-# /ip firewall filter add chain=forward src-address-list=OMNI_ODOO_ONLY dst-address=192.168.1.250 protocol=tcp dst-port=443 action=accept comment="Odoo-only DEVICE: approved Odoo TCP"
-# /ip firewall filter add chain=forward src-address-list=OMNI_ODOO_STARLINK dst-address=192.168.1.250 protocol=tcp dst-port=443 action=accept comment="Odoo+Starlink DEVICE: approved Odoo TCP"
+# The two Phase 0 port variables generate these rules before the Odoo deny.
+# Both managed groups receive exactly the same approved Odoo application ports.
+:if ([:len $odooTcpPorts] > 0) do={
+    /ip firewall filter add chain=forward src-address-list=OMNI_ODOO_ONLY dst-address=192.168.1.250 protocol=tcp dst-port=$odooTcpPorts action=accept comment="CANONICAL: Odoo-only approved TCP"
+    /ip firewall filter add chain=forward src-address-list=OMNI_ODOO_STARLINK dst-address=192.168.1.250 protocol=tcp dst-port=$odooTcpPorts action=accept comment="CANONICAL: Odoo+Starlink approved TCP"
+}
+:if ([:len $odooUdpPorts] > 0) do={
+    /ip firewall filter add chain=forward src-address-list=OMNI_ODOO_ONLY dst-address=192.168.1.250 protocol=udp dst-port=$odooUdpPorts action=accept comment="CANONICAL: Odoo-only approved UDP"
+    /ip firewall filter add chain=forward src-address-list=OMNI_ODOO_STARLINK dst-address=192.168.1.250 protocol=udp dst-port=$odooUdpPorts action=accept comment="CANONICAL: Odoo+Starlink approved UDP"
+}
 /ip firewall filter add chain=forward in-interface=BR_MANAGED dst-address=192.168.1.250 action=reject reject-with=icmp-admin-prohibited comment="CANONICAL: reject unapproved Odoo ports"
 
 # FORCE_ADSL takes priority and is allowed only for Internet-capable groups.

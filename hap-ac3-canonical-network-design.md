@@ -4,7 +4,7 @@
 
 **Status:** Approved architecture baseline  
 **Target device:** MikroTik hAP ac3  
-**Target OS:** RouterOS 7.x  
+**Target OS:** RouterOS 7.20.8 (long-term)
 **Configuration style:** explicit, auditable, deny-by-default, no hidden assumptions
 
 ---
@@ -763,4 +763,3 @@ Before writing the final executable configuration:
 5. only then generate the final RouterOS 7 script.
 
 Do not guess missing production values.
-
