@@ -253,6 +253,56 @@ Importe con:
 Mantenga Safe Mode hasta completar las comprobaciones básicas de rutas,
 administración y Odoo.
 
+### Error `input does not match any value of routing-table`
+
+RouterOS crea dinámicamente una tabla con el mismo nombre al añadir una VRF.
+En RouterOS 7.20.8 esa tabla puede publicarse poco después de que termine
+`/ip vrf add`. Una versión anterior de este archivo podía alcanzar la primera
+ruta con `routing-table=vrf-starlink` durante ese intervalo y detenerse con:
+
+```text
+Script Error: input does not match any value of routing-table
+```
+
+La versión corregida espera hasta cinco segundos y sólo continúa después de
+encontrar exactamente una tabla llamada `vrf-starlink`; si no aparece, aborta
+con un error explícito. No continúe manualmente desde el punto del fallo ni
+vuelva a importar sobre la configuración parcial. Si el indicador `<SAFE>`
+sigue presente, pulse `Ctrl+D` en un prompt vacío para cerrar la sesión y
+revertir los cambios. Después confirme que recuperó la configuración anterior,
+aplique otra vez los ocho valores de producción a una copia limpia del script
+corregido e importe desde una nueva sesión en Safe Mode.
+
+Si el prompt ya no contiene `<SAFE>`, los cambios parciales no se revertirán al
+cerrar la sesión. Compruebe primero que existe la copia automática anterior a
+los cambios y descárguela fuera del router:
+
+```routeros
+/file print detail where name="pre-canonical-7.20.8.backup"
+```
+
+Después, durante una ventana con acceso físico, restaure esa copia en el mismo
+equipo y la misma versión. La copia automática se creó sin contraseña y la
+restauración reinicia el router:
+
+```routeros
+/system backup load name="pre-canonical-7.20.8.backup" password=""
+```
+
+Confirme la pregunta interactiva de restauración únicamente después de haber
+descargado la copia y verificado que corresponde a esta ejecución.
+
+Para diagnosticar una incidencia antes de revertirla:
+
+```routeros
+/ip vrf print detail
+/routing table print detail
+/ip route print detail
+```
+
+La VRF debe estar antes de `main`, y `vrf-starlink` debe aparecer como tabla
+dinámica con `fib` antes de añadir rutas o marcas que la referencien.
+
 ### Error de versión vacía durante la importación
 
 El archivo completo está encerrado en un único bloque `:do { ... }`. Esto es
@@ -453,8 +503,11 @@ para distinguir los egresos; no confíe solamente en que una página cargue.
 
 ### Si aún está en Safe Mode
 
-Pulse `Ctrl+X` o cierre abruptamente la sesión para que RouterOS revierta los
-cambios de esa sesión. Ésta es la recuperación preferida durante el despliegue.
+En un prompt vacío, pulse `Ctrl+D` para cerrar la sesión y revertir los cambios
+de Safe Mode. Una terminación anormal también los revierte después del timeout,
+pero no debe usarse como procedimiento normal. **No pulse `Ctrl+X`: esa tecla
+sale de Safe Mode conservando los cambios.** Ésta es la recuperación preferida
+durante el despliegue.
 
 ### Si conserva acceso administrativo
 
