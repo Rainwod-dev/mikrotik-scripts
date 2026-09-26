@@ -19,12 +19,20 @@
 # For a device physically installed in the United States, use "united states".
 :local wifiCountry ""
 
+# This configuration has been reviewed only for this exact hardware/OS pair.
+# Abort before backups or configuration changes on any other target.
+:local installedVersion [/system resource get version]
+:local installedBoard [/system resource get board-name]
+:if (($installedVersion != "7.20.8") && ($installedVersion != "7.20.8 (long-term)")) do={ :error ("Unsupported RouterOS version: " . $installedVersion . "; expected 7.20.8") }
+:if ($installedBoard != "hAP ac^3") do={ :error ("Unsupported board: " . $installedBoard . "; expected hAP ac^3") }
+
 :if ([:len $trustedManagementIpCidr] = 0) do={ :error "SET trustedManagementIpCidr (use /32 for one host)" }
 :if ([:len $trustedManagementMac] = 0) do={ :error "SET trustedManagementMac" }
 :if ([:len $wifiSSID] = 0) do={ :error "SET wifiSSID" }
 :if (([:len $wifiPassphrase] < 8) || ([:len $wifiPassphrase] > 63)) do={ :error "wifiPassphrase must contain 8 to 63 characters" }
 :if ([:len $wifiCountry] = 0) do={ :error "SET wifiCountry to the RouterOS country value for the installation" }
 :if (([:len [/interface find where name=ether1]] != 1) || ([:len [/interface find where name=ether2]] != 1) || ([:len [/interface find where name=ether3]] != 1)) do={ :error "Expected default interfaces ether1, ether2 and ether3" }
+:if (([:len [/interface find where default-name=wlan1]] != 1) || ([:len [/interface find where default-name=wlan2]] != 1)) do={ :error "Expected legacy wireless interfaces wlan1 and wlan2" }
 
 # Refuse a second application rather than silently duplicate policy rules.
 :if ([:len [/ip firewall filter find where comment="CANONICAL: input established"]] > 0) do={ :error "Canonical configuration already appears to be installed" }

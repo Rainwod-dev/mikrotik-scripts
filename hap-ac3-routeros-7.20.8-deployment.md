@@ -29,14 +29,41 @@ El script configura ambas radios como AP, con WPA2-AES, y las incorpora junto
 con OmniTik al segmento administrado `192.168.88.0/24`.
 
 El archivo [`hap-ac3-routeros-7.20.8.rsc`](hap-ac3-routeros-7.20.8.rsc) es una
-plantilla ejecutable con guardas: **aborta antes del primer cambio** mientras
-falte cualquiera de estos datos:
+plantilla ejecutable con guardas: **aborta antes del primer cambio** si el
+equipo no es un `hAP ac^3`, si la versión no es exactamente `7.20.8`, si no
+existen las interfaces esperadas o mientras falte cualquiera de estos datos:
 
 1. IP `/32` del equipo administrador;
 2. MAC del equipo administrador;
 3. SSID inalámbrico;
 4. contraseña WPA2 de 8 a 63 caracteres;
 5. país reglamentario para las radios.
+
+Las guardas no pueden comprobar los valores que permanecen como líneas
+comentadas (puertos de Odoo, dominios y altas `ADSL_STARLINK`). La revisión
+manual de esos tres bloques sigue siendo obligatoria.
+
+## Dictamen de revisión antes del despliegue
+
+El diseño, el script y esta guía son coherentes con RouterOS **7.20.8
+(long-term)** y con el `hAP ac^3` informado. Sin embargo, el archivo versionado
+es deliberadamente una **plantilla y no está listo para importarse tal cual**:
+
+- las cinco variables de `PHASE 0` están vacías;
+- las reglas con los puertos reales de Odoo siguen comentadas;
+- los dominios reales `FORCE_ADSL` siguen sin definir;
+- deben incorporarse los clientes `ADSL_STARLINK` necesarios para el primer
+  corte, si existe alguno;
+- aún se debe comparar un export inmediatamente anterior al cambio con el
+  export mínimo sobre el que se preparó la plantilla;
+- deben estar preparados la ruta de retorno de Odoo y el cambio de OmniTik a
+  bridge/AP.
+
+El estado pasa a **listo para proceder siguiendo la guía** únicamente cuando
+todos esos puntos se hayan completado en una copia local, se hayan etiquetado y
+cableado los tres puertos, se hayan descargado las copias de seguridad y el
+operador disponga de acceso físico y una sesión por cable en Safe Mode. No se
+deben guardar secretos ni valores de producción en este repositorio.
 
 ## Cableado obligatorio
 
@@ -147,8 +174,11 @@ Use un nombre con fecha/hora elegido por el operador, sin espacios. Ejemplo:
 Descargue ambos archivos fuera del router. El script toma además copias con el
 nombre fijo `pre-canonical-7.20.8`, pero éstas no sustituyen la copia fechada.
 
-Active **Safe Mode** (`Ctrl+X`) en una sesión cableada antes de importar. No
-ejecute el cambio desde el enlace que vaya a renombrarse o desde Wi-Fi.
+Active **Safe Mode** (`Ctrl+X`) en una sesión cableada desde la LAN ADSL antes
+de importar. No lo ejecute desde Wi-Fi, Starlink ni el enlace de OmniTik. El
+script renombra `ether2` como `LAN_ADSL`; por ello mantenga abierta la sesión
+original y confirme una segunda conexión administrativa antes de salir de Safe
+Mode.
 
 ## Preparación del script
 
